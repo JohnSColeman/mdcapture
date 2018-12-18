@@ -1,0 +1,16 @@
+logs
+target
+tmp
+lib
+nshellata
+java
+*.java
+.history
+/.idea
+/*.iml
+/.idea_modules
+/.classpath
+/.settings
+.target/
+.DS_Store
+*.iml
