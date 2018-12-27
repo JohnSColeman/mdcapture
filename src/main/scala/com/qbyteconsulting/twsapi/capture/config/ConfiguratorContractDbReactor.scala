@@ -50,12 +50,12 @@ class ConfiguratorContractDbReactor(val reactorCore: ReactorCore)
     case Left(failures) => Nil
   }
 
-  override def handleEvent(event: ReactorEvent): Unit = {
+  override def onEvent(event: ReactorEvent): Unit = {
     event match {
-      case ConnectionSuccess() =>
+      case ConnectionSuccess() | Reload() =>
         if (!configuredContracts.isEmpty)
-          publishEvent(ContractsConfigured(configuredContracts))
-      case _ => ()
+          publish(ContractsConfigured(configuredContracts))
+      case _ => Unit
     }
   }
 
@@ -85,7 +85,7 @@ class ConfiguratorContractDbReactor(val reactorCore: ReactorCore)
                                      contractDetails: ContractDetails): Unit = {
     storeContractDetails(contractDetails) match {
       case Right(conId) =>
-        publishEvent(ContractLoaded(contractDetails))
+        publish(ContractLoaded(contractDetails))
       case Left(e) => e.printStackTrace()
     }
   }

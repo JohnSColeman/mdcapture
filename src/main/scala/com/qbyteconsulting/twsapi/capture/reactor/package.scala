@@ -1,8 +1,10 @@
 package com.qbyteconsulting.twsapi.capture
 
 import java.util.concurrent.ThreadFactory
+import java.util.concurrent.atomic.AtomicLong
 
 import com.lmax.disruptor.{EventFactory, EventHandler}
+import org.slf4j.LoggerFactory
 
 package object reactor {
 
@@ -10,6 +12,7 @@ package object reactor {
   case class Launch() extends ReactorEvent
 
   class EventVal() {
+
     private var value: ReactorEvent = null
     def getValue: ReactorEvent = value
     def setValue(value: ReactorEvent): Unit = this.value = value
@@ -17,27 +20,33 @@ package object reactor {
 
   trait EventValHandler extends EventHandler[EventVal] {
 
-    final override def onEvent(t: EventVal, l: Long, b: Boolean): Unit = {
-      println(this.toString + " onEvent:" + t.getValue)
-      handleEvent(t.getValue)
-    }
+    implicit val log = LoggerFactory.getLogger(classOf[EventValHandler])
 
-    def handleEvent(event: ReactorEvent): Unit = ()
+    override def onEvent(t: EventVal, l: Long, b: Boolean): Unit = LogTry {
+      onEvent(t.getValue)
+      println("onEvent: " + t.getValue + " @" + this.getClass.getSimpleName)
+    }
+    def onEvent(event: ReactorEvent): Unit = ()
   }
 
   trait EventPublisher {
-    def publishEvent(event: ReactorEvent): Unit
+
+    def publish(event: ReactorEvent): Unit
   }
 
-  private[reactor] def REACTOR_EVENT_FACTORY: EventFactory[EventVal] =
+  private[reactor] def ReactorEventFactory: EventFactory[EventVal] =
     new EventFactory[EventVal]() {
       override def newInstance = new EventVal()
     }
 
-  class DefaultThreadFactory extends ThreadFactory {
-    override def newThread(r: Runnable): Thread = new Thread(r)
-  }
+  class ThreadGroupFactory(group: ThreadGroup) extends ThreadFactory {
 
-  lazy val ThreadFactoryInstance: ThreadFactory =
-    new DefaultThreadFactory
+    private val threadSeqNumber = new AtomicLong(1)
+
+    private def nextName() =
+      s"Reactor ${group.getName}-${threadSeqNumber.getAndIncrement()}"
+
+    override def newThread(r: Runnable): Thread =
+      new Thread(group, r, nextName())
+  }
 }

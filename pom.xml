@@ -4,19 +4,26 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.qbyteconsulting.twsapi</groupId>
+    <groupId>com.qbyte.twsapi</groupId>
     <artifactId>TwsApiCapture</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.2-SNAPSHOT</version>
 
     <dependencies>
 
+        <!-- Configure local path to TwsApi.jar dependency -->
         <!--dependency>
             <groupId>com.ib</groupId>
             <artifactId>TwsApi</artifactId>
             <version>9.72.18</version>
             <scope>system</scope>
-            <systemPath>${basedir}/../m2/repository/com/ib/TwsApi/9/72/18/TwsApi-9.72.18.jar</systemPath>
+            <systemPath>C:/IBJts/source/JavaClient/TwsApi.jar</systemPath>
         </dependency-->
+
+        <dependency>
+            <groupId>org.influxdb</groupId>
+            <artifactId>influxdb-java</artifactId>
+            <version>2.14</version>
+        </dependency>
 
         <dependency>
             <groupId>com.lmax</groupId>
@@ -103,7 +110,7 @@
                     </descriptorRefs>
                     <archive>
                         <manifest>
-                            <mainClass>ScalaRunner</mainClass>
+                            <mainClass>com.qbyteconsulting.twsapi.capture.IbCaptureApp</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
@@ -118,5 +125,13 @@
             </plugin>
         </plugins>
     </build>
+
+    <repositories>
+        <repository>
+            <id>spring.io</id>
+            <name>Spring Artifactory</name>
+            <url>http://repo.spring.io/plugins-release</url>
+        </repository>
+    </repositories>
 
 </project>

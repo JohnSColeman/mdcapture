@@ -9,7 +9,7 @@ import com.qbyteconsulting.twsapi.capture.reactor.{
 
 object ReactorTickDataSink {
 
-  trait MarketEvent extends ReactorEvent
+  trait MarketEvent extends ReactorEvent { val tickerId: Int }
   case class BidPrice(val tickerId: Int,
                       val price: Double,
                       val timestamp: Long = System.currentTimeMillis())
@@ -36,22 +36,24 @@ class ReactorTickDataSink(val reactorCore: ReactorCore)
   override def updateBidPrice(tickerId: Int,
                               price: Double,
                               timestamp: Long): Unit =
-    publishEvent(BidPrice(tickerId, price, timestamp: Long))
+    publish(BidPrice(tickerId, price, timestamp: Long))
 
   override def updateAskPrice(tickerId: Int,
                               price: Double,
                               timestamp: Long): Unit =
-    publishEvent(AskPrice(tickerId, price, timestamp: Long))
+    publish(AskPrice(tickerId, price, timestamp: Long))
 
   override def updateLastPrice(tickerId: Int,
                                price: Double,
                                timestamp: Long): Unit =
-    publishEvent(LastPrice(tickerId, price, timestamp: Long))
+    publish(LastPrice(tickerId, price, timestamp: Long))
 
   override def updateTradedVolume(tickerId: Int,
                                   volume: Int,
                                   timestamp: Long): Unit =
-    publishEvent(TradedVolume(tickerId, volume, timestamp: Long))
+    publish(TradedVolume(tickerId, volume, timestamp: Long))
 
-  override def tickerCloses(tickerId: Int): Unit = ()
+  override def tickerCloses(tickerId: Int): Unit = {
+    println(s"tickerCloses $tickerId")
+  }
 }

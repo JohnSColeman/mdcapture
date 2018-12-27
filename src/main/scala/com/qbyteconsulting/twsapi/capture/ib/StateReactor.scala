@@ -1,91 +1,68 @@
 package com.qbyteconsulting.twsapi.capture.ib
 
-import java.text.SimpleDateFormat
-import java.util.TimeZone
+import java.time.{Duration, Instant}
+import java.util.concurrent.ScheduledFuture
 
-import com.ib.client.{Contract, ContractDetails}
-import com.qbyteconsulting.twsapi.capture.reactor
-import com.qbyteconsulting.twsapi.capture.reactor.{Reactor, ReactorCore}
+import com.qbyteconsulting.twsapi.capture.ib.StateReactor.HealthCheck
+import com.qbyteconsulting.twsapi.capture.reactor.{
+  Reactor,
+  ReactorCore,
+  ReactorEvent
+}
 
 object StateReactor {
 
-  private val DateTimePattern = "yyyyMMdd:HHmm"
-
-  case class TradingPeriod(contract: Contract, open: Long, close: Long)
-
-  def getTradingPeriods(
-      contractDetails: ContractDetails): Seq[TradingPeriod] = {
-    try {
-      val days = contractDetails
-        .tradingHours()
-        .split(";")
-        .filter(!_.endsWith("CLOSED"))
-        .toList
-      val timeZone = TimeZone.getTimeZone(contractDetails.timeZoneId())
-      val dateFmt = new SimpleDateFormat(DateTimePattern)
-      dateFmt.setTimeZone(timeZone)
-      days.map { range =>
-        val (from, to) = range.split("-") match {
-          case Array(from, to) => (from, to)
-        }
-        TradingPeriod(contractDetails.contract(),
-                      dateFmt.parse(from).getTime,
-                      dateFmt.parse(to).getTime)
-      }
-    } catch {
-      case e: Exception => {
-        e.printStackTrace()
-        Seq.empty[TradingPeriod]
-      }
-    }
-  }
+  case class HealthCheck(val startTime: Instant) extends ReactorEvent
 }
 
 class StateReactor(val reactorCore: ReactorCore)
     extends Reactor
     with StatusListener {
-  import StateReactor._
 
-  override def handleEvent(event: reactor.ReactorEvent): Unit = {
+  var healthCheckCommand: Option[ScheduledFuture[_]] = None
+
+  override def onEvent(event: ReactorEvent): Unit = {
     event match {
-      case ContractLoaded(contractDetails) => loadSchedule(contractDetails)
-      case _                               => ()
+      case ConnectionFail(_) | Error507(_) => {
+        if (healthCheckCommand.isEmpty) {
+          healthCheckCommand = Some(
+            scheduleRepeat(HealthCheck(Instant.now()), Duration.ofSeconds(15)))
+        }
+      }
+      case _ => Unit
     }
   }
 
-  override def connectionSuccess(): Unit = publishEvent(ConnectionSuccess())
+  override def connectionSuccess(): Unit = {
+    publish(ConnectionSuccess())
+    if (healthCheckCommand.isDefined) {
+      val isCancelled = healthCheckCommand.get.cancel(true) // TODO side effect?
+      if (isCancelled) healthCheckCommand = None
+    }
+  }
 
-  override def error(id: Int, errorCode: Int, errorMsg: String): Unit = {
+  override def connectionClosed(): Unit = publish(ConnectionClosed())
+
+  override def error(errorCode: Int, errorMsg: String): Unit = {
     val event = errorCode match {
-      case 502  => Status502()
-      case 504  => Status504()
-      case 1100 => Status1100()
-      case 1101 => Status1101()
-      case 1102 => Status1102()
+      case 502  => Error502()
+      case 504  => Error504()
+      case 507  => Error507()
+      case 1100 => Error1100()
+      case 1101 => Error1101()
+      case 1102 => Error1102()
       case 2103 => {
         val farm =
           errorMsg.substring(errorMsg.indexOf(":") + 1, errorMsg.length)
-        Status2103(farm)
+        Error2103(farm)
       }
-      case _ => ErrorStatus(id, errorCode, errorMsg)
+      case _ => Error(errorCode, errorMsg)
     }
-    publishEvent(event)
+    publish(event)
   }
 
-  private def loadSchedule(contractDetails: ContractDetails): Unit = {
-    val periods = getTradingPeriods(contractDetails)
-    periods.foreach { period =>
-      val now = System.currentTimeMillis()
-      if (period.open <= now && period.close >= now) {
-        publishEvent(RequestMarketData(contractDetails.contract()))
-        scheduleEvent(CancelMarketData(contractDetails.conid()),
-                      (period.close - now))
-      } else if (period.open >= now) {
-        scheduleEvent(RequestMarketData(contractDetails.contract()),
-                      period.open - now)
-        scheduleEvent(CancelMarketData(contractDetails.conid()),
-                      (period.close - now))
-      }
-    }
-  }
+  override def tickerError(tickerId: Int,
+                           errorCode: Int,
+                           errorMsg: String): Unit =
+    publish(TickerError(tickerId, errorCode, errorMsg))
 }

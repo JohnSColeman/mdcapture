@@ -13,19 +13,21 @@ import org.slf4j.LoggerFactory
 class LoggingTickDataEventHandler(logFormat: String = IdbLineFmt)
     extends EventValHandler {
 
-  private implicit val log =
-    LoggerFactory.getLogger("ticklog")
+  private val ticklog = LoggerFactory.getLogger("ticklog")
 
-  override def handleEvent(event: reactor.ReactorEvent): Unit = {
+  override def onEvent(event: reactor.ReactorEvent): Unit = {
     event match {
       case BidPrice(tickerId, price, timestamp) =>
-        log.info(logFormat.format(tickerId, "bid", price, (timestamp * 1000)))
+        ticklog.info(
+          logFormat.format(tickerId, "bid", price, (timestamp * 1000)))
       case AskPrice(tickerId, price, timestamp) =>
-        log.info(logFormat.format(tickerId, "ask", price, (timestamp * 1000)))
+        ticklog.info(
+          logFormat.format(tickerId, "ask", price, (timestamp * 1000)))
       case LastPrice(tickerId, price, timestamp) =>
-        log.info(logFormat.format(tickerId, "last", price, (timestamp * 1000)))
+        ticklog.info(
+          logFormat.format(tickerId, "last", price, (timestamp * 1000)))
       case TradedVolume(tickerId, volume, timestamp) =>
-        log.info(
+        ticklog.info(
           logFormat.format(tickerId, "volume", volume, (timestamp * 1000)))
       case _ => ()
     }
