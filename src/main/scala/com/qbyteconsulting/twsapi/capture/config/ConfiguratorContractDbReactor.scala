@@ -6,11 +6,7 @@ import com.qbyteconsulting.twsapi.capture.ib.ContractDb.{
   ContractDbIOException
 }
 import com.qbyteconsulting.twsapi.capture.ib._
-import com.qbyteconsulting.twsapi.capture.reactor.{
-  Reactor,
-  ReactorCore,
-  ReactorEvent
-}
+import com.qbyteconsulting.reactor.{Reactor, ReactorCore, ReactorEvent}
 import pureconfig.error.ConfigReaderFailures
 import pureconfig.loadConfig
 

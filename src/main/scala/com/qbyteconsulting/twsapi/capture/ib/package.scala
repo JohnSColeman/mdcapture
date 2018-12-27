@@ -1,9 +1,11 @@
 package com.qbyteconsulting.twsapi.capture
 
+import java.time.Instant
+
 import com.ib.client.{Contract, ContractDetails}
+import com.qbyteconsulting.reactor.ReactorEvent
 import com.qbyteconsulting.twsapi.capture.config.ContractConfig
 import com.qbyteconsulting.twsapi.capture.ib.ContractDb.ConId
-import com.qbyteconsulting.twsapi.capture.reactor.ReactorEvent
 
 package object ib {
 
@@ -16,32 +18,32 @@ package object ib {
   case class ConnectionFail(t: Throwable) extends ReactorEvent
   case class Reconnect() extends ReactorEvent
   case class Reload() extends ReactorEvent
-  case class ServerTimeAdjust(val adjust: Long) extends ReactorEvent
-  case class Error(errorCode: Int, errorMsg: String) extends ReactorEvent
-  case class TickerError(tickerId: Int, errorCode: Int, errorMsg: String)
+  case class ConnectionCheck(val startTime: Instant) extends ReactorEvent
+  case class RequestError(requestId: Int, errorCode: Int, errorMsg: String)
       extends ReactorEvent
-  case class Error502(val message: String = "Couldn't connect to TWS.")
+  case class Status(code: Int, msg: String) extends ReactorEvent
+  case class Status502(val message: String = "Couldn't connect to TWS.")
       extends ReactorEvent
-  case class Error504(val message: String = "Not connected to TWS.")
+  case class Status504(val message: String = "Not connected to TWS.")
       extends ReactorEvent
-  case class Error507(val message: String = "Bad Message Length")
+  case class Status507(val message: String = "Bad Message Length")
       extends ReactorEvent
-  case class Error1100(val message: String =
+  case class Status1100(val message: String =
     "Connectivity between IB and the TWS has been lost.")
       extends ReactorEvent
-  case class Error1101(
+  case class Status1101(
       val message: String =
         "Connectivity between IB and TWS has been restored- data lost.")
       extends ReactorEvent
-  case class Error1102(
+  case class Status1102(
       val message: String =
         "Connectivity between IB and TWS has been restored- data maintained.")
       extends ReactorEvent
-  case class Error2103(val farm: String,
-                       val message: String =
-                         "A market data farm is disconnected.")
+  case class Status2103(val farm: String,
+                        val message: String =
+                          "A market data farm is disconnected.")
       extends ReactorEvent
-  case class Error2104(
+  case class Status2104(
       val message: String = "Market data farm connection is OK")
       extends ReactorEvent
   case class ContractsConfigured(val contracts: Iterable[ContractConfig])

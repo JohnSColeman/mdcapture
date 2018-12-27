@@ -9,7 +9,7 @@ import com.qbyteconsulting.twsapi.capture.ib.esocket.EClientSocketReactor
 import com.qbyteconsulting.twsapi.capture.ib.ewrapper.ListeningEWrapperable
 import com.qbyteconsulting.twsapi.capture.ib.schedule.TradingScheduleReactor
 import com.qbyteconsulting.twsapi.capture.ib.{IbHostParams, StateReactor}
-import com.qbyteconsulting.twsapi.capture.reactor.ReactorCore
+import com.qbyteconsulting.reactor.ReactorCore
 
 object IbCaptureApp extends App {
 

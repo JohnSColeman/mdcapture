@@ -4,6 +4,6 @@ trait StatusListener {
 
   def connectionSuccess()
   def connectionClosed()
-  def error(errorCode: Int, errorMsg: String)
-  def tickerError(tickerId: Int, code: Int, msg: String)
+  def notification(code: Int, msg: String)
+  def error(requestId: Int, errorCode: Int, errorMsg: String)
 }

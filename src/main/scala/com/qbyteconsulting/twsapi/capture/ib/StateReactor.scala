@@ -3,30 +3,21 @@ package com.qbyteconsulting.twsapi.capture.ib
 import java.time.{Duration, Instant}
 import java.util.concurrent.ScheduledFuture
 
-import com.qbyteconsulting.twsapi.capture.ib.StateReactor.HealthCheck
-import com.qbyteconsulting.twsapi.capture.reactor.{
-  Reactor,
-  ReactorCore,
-  ReactorEvent
-}
-
-object StateReactor {
-
-  case class HealthCheck(val startTime: Instant) extends ReactorEvent
-}
+import com.qbyteconsulting.reactor.{Reactor, ReactorCore, ReactorEvent}
 
 class StateReactor(val reactorCore: ReactorCore)
     extends Reactor
     with StatusListener {
 
-  var healthCheckCommand: Option[ScheduledFuture[_]] = None
+  var connectionChecker: Option[ScheduledFuture[_]] = None
 
   override def onEvent(event: ReactorEvent): Unit = {
     event match {
-      case ConnectionFail(_) | Error507(_) => {
-        if (healthCheckCommand.isEmpty) {
-          healthCheckCommand = Some(
-            scheduleRepeat(HealthCheck(Instant.now()), Duration.ofSeconds(15)))
+      case ConnectionFail(_) | Status507(_) => {
+        if (connectionChecker.isEmpty) {
+          connectionChecker = Some(
+            scheduleRepeat(ConnectionCheck(Instant.now()),
+                           Duration.ofSeconds(15)))
         }
       }
       case _ => Unit
@@ -35,34 +26,32 @@ class StateReactor(val reactorCore: ReactorCore)
 
   override def connectionSuccess(): Unit = {
     publish(ConnectionSuccess())
-    if (healthCheckCommand.isDefined) {
-      val isCancelled = healthCheckCommand.get.cancel(true) // TODO side effect?
-      if (isCancelled) healthCheckCommand = None
+    if (connectionChecker.isDefined) {
+      val isCancelled = connectionChecker.get.cancel(true) // TODO side effect?
+      if (isCancelled) connectionChecker = None
     }
   }
 
   override def connectionClosed(): Unit = publish(ConnectionClosed())
 
-  override def error(errorCode: Int, errorMsg: String): Unit = {
-    val event = errorCode match {
-      case 502  => Error502()
-      case 504  => Error504()
-      case 507  => Error507()
-      case 1100 => Error1100()
-      case 1101 => Error1101()
-      case 1102 => Error1102()
+  override def notification(code: Int, msg: String): Unit = {
+    val event = code match {
+      case 502  => Status502()
+      case 504  => Status504()
+      case 507  => Status507()
+      case 1100 => Status1100()
+      case 1101 => Status1101()
+      case 1102 => Status1102()
       case 2103 => {
         val farm =
-          errorMsg.substring(errorMsg.indexOf(":") + 1, errorMsg.length)
-        Error2103(farm)
+          msg.substring(msg.indexOf(":") + 1, msg.length)
+        Status2103(farm)
       }
-      case _ => Error(errorCode, errorMsg)
+      case _ => Status(code, msg)
     }
     publish(event)
   }
 
-  override def tickerError(tickerId: Int,
-                           errorCode: Int,
-                           errorMsg: String): Unit =
-    publish(TickerError(tickerId, errorCode, errorMsg))
+  override def error(requestId: Int, errorCode: Int, errorMsg: String): Unit =
+    publish(RequestError(requestId, errorCode, errorMsg))
 }

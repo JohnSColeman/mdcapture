@@ -1,4 +1,4 @@
-package com.qbyteconsulting.twsapi.capture
+package com.qbyteconsulting
 
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicLong
@@ -22,9 +22,11 @@ package object reactor {
 
     implicit val log = LoggerFactory.getLogger(classOf[EventValHandler])
 
-    override def onEvent(t: EventVal, l: Long, b: Boolean): Unit = LogTry {
-      onEvent(t.getValue)
-      println("onEvent: " + t.getValue + " @" + this.getClass.getSimpleName)
+    private val debug = log.isDebugEnabled
+
+    override def onEvent(t: EventVal, l: Long, b: Boolean): Unit = {
+      if (debug) log.debug(t.getValue.toString)
+      LogTry(onEvent(t.getValue))
     }
     def onEvent(event: ReactorEvent): Unit = ()
   }

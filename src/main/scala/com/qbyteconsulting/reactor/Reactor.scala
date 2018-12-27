@@ -1,4 +1,4 @@
-package com.qbyteconsulting.twsapi.capture.reactor
+package com.qbyteconsulting.reactor
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.ScheduledFuture

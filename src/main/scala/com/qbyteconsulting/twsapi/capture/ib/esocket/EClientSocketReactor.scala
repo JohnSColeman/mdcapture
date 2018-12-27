@@ -3,27 +3,18 @@ package com.qbyteconsulting.twsapi.capture.ib.esocket
 import java.lang
 import java.lang.management.ManagementFactory
 import java.net.{InetAddress, InetSocketAddress, Socket}
-import java.text.SimpleDateFormat
-import java.util.GregorianCalendar
 
 import com.ib.client.{EJavaSignal, EWrapper}
-import com.qbyteconsulting.twsapi.capture.ib.StateReactor.HealthCheck
+import com.qbyteconsulting.LogTry
+import com.qbyteconsulting.reactor.{Launch, Reactor, ReactorCore, ReactorEvent}
 import com.qbyteconsulting.twsapi.capture.ib._
-import com.qbyteconsulting.twsapi.capture.reactor.{
-  Launch,
-  Reactor,
-  ReactorCore,
-  ReactorEvent
-}
-import javax.management.{NotificationBroadcasterSupport, ObjectName}
+import javax.management.ObjectName
 
 import scala.util.{Failure, Success, Try}
 
 object EClientSocketReactor {
 
   private val GTT = "225"
-
-  class Notifier extends NotificationBroadcasterSupport {}
 }
 
 class EClientSocketReactor(hostParams: IbHostParams,
@@ -32,7 +23,6 @@ class EClientSocketReactor(hostParams: IbHostParams,
     extends Reactor
     with EClientSocketReactorMBean {
   import EClientSocketReactor._
-  import com.qbyteconsulting.twsapi.capture.LogTry
 
   LogTry {
     val on =
@@ -54,17 +44,18 @@ class EClientSocketReactor(hostParams: IbHostParams,
 
   override def onEvent(event: ReactorEvent): Unit = {
     event match {
-      case Launch() | Reconnect() | HealthCheck(_) => connectClientSocket()
+      case Launch() | Reconnect() | ConnectionCheck(_) => connectClientSocket()
       case ContractsConfigured(contracts) =>
         contracts.foreach { c =>
           clientSocket.reqContractDetails(c.cConid, c.toIbContract())
         }
+      case ConnectionSuccess() => clientSocket.reqCurrentTime()
       case RequestMarketData(contract) =>
         clientSocket.reqMktData(contract.conid(), contract, GTT, false, null)
       case CancelMarketData(conid) =>
         clientSocket.cancelMktData(conid)
-      case Error507(_) => clientSocket.eDisconnect()
-      case _           => Unit
+      case Status507(_) => clientSocket.eDisconnect()
+      case _            => Unit
     }
   }
 
@@ -90,7 +81,7 @@ class EClientSocketReactor(hostParams: IbHostParams,
           if (!clientSocket.isConnected)
             clientSocket.connectSocket(socket, hostParams.clientId)
         } match {
-          case Success(_) => publish(ServerTimeAdjust(calcDif()))
+          case Success(_) => Unit
           case Failure(t) => {
             connectionError =
               s"failed client socket connection to ${hostParams} - ${t.getLocalizedMessage}"
@@ -119,16 +110,5 @@ class EClientSocketReactor(hostParams: IbHostParams,
         socket
       }
     }
-  }
-
-  private def calcDif(): Long = { // TODO flaky
-    val twsdf = new SimpleDateFormat("yyyyMMdd HH:mm:ss z")
-    val twsTime: Long = twsdf.parse(clientSocket.TwsConnectionTime).getTime
-    val twsCal = new GregorianCalendar
-    twsCal.setTimeInMillis(twsTime)
-    val pcTime: Long = System.currentTimeMillis
-    val calcTimeIDif = (pcTime - twsTime) // if price server later timeDif -ve
-    println(s"PC-Trader Workstation time dif = ${calcTimeIDif} ms")
-    calcTimeIDif
   }
 }

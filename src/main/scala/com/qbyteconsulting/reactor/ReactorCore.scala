@@ -1,4 +1,4 @@
-package com.qbyteconsulting.twsapi.capture.reactor
+package com.qbyteconsulting.reactor
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.{
@@ -6,6 +6,7 @@ import java.util.concurrent.{
   ScheduledThreadPoolExecutor,
   TimeUnit
 }
+
 import com.lmax.disruptor.EventHandler
 import com.lmax.disruptor.dsl.Disruptor
 import org.slf4j.LoggerFactory
@@ -86,7 +87,7 @@ final class ReactorCore(name: String, size: Int) {
     val seq = eventBuffer.next()
     try {
       eventBuffer.get(seq).setValue(event)
-      if (debug) { log.debug(name + " publish: " + event) }
+      if (debug) { log.debug(s"$name publish: $event") }
     } finally {
       eventBuffer.publish(seq)
     }

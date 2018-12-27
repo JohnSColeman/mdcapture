@@ -1,13 +1,12 @@
 package com.qbyteconsulting.twsapi.capture.data
 
+import com.qbyteconsulting.reactor.{EventValHandler, _}
 import com.qbyteconsulting.twsapi.capture.data.ReactorTickDataSink.{
   AskPrice,
   BidPrice,
   LastPrice,
   TradedVolume
 }
-import com.qbyteconsulting.twsapi.capture.reactor
-import com.qbyteconsulting.twsapi.capture.reactor.EventValHandler
 import org.slf4j.LoggerFactory
 
 class LoggingTickDataEventHandler(logFormat: String = IdbLineFmt)
@@ -15,7 +14,7 @@ class LoggingTickDataEventHandler(logFormat: String = IdbLineFmt)
 
   private val ticklog = LoggerFactory.getLogger("ticklog")
 
-  override def onEvent(event: reactor.ReactorEvent): Unit = {
+  override def onEvent(event: ReactorEvent): Unit = {
     event match {
       case BidPrice(tickerId, price, timestamp) =>
         ticklog.info(

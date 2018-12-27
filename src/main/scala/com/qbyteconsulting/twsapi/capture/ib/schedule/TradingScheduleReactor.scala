@@ -5,10 +5,9 @@ import java.text.SimpleDateFormat
 import java.util.TimeZone
 
 import com.ib.client.{Contract, ContractDetails}
+import com.qbyteconsulting.reactor.{Reactor, ReactorCore, _}
 import com.qbyteconsulting.twsapi.capture.ib.ContractDb.ConId
 import com.qbyteconsulting.twsapi.capture.ib._
-import com.qbyteconsulting.twsapi.capture.reactor
-import com.qbyteconsulting.twsapi.capture.reactor.{Reactor, ReactorCore}
 import javax.management.ObjectName
 
 import scala.collection.mutable
@@ -86,7 +85,7 @@ class TradingScheduleReactor(val reactorCore: ReactorCore) extends Reactor {
   private val scheduledSessions = new mutable.ArrayBuffer[TradingSession]()
   private val tradingCalendar = new TradingCalendar()
 
-  override def onEvent(event: reactor.ReactorEvent): Unit =
+  override def onEvent(event: ReactorEvent): Unit =
     event match {
       case ContractLoaded(contractDetails) => scheduleEvents(contractDetails)
       case RequestMarketData(contract)     => openTradingSession(contract)

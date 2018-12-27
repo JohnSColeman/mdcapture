@@ -3,6 +3,7 @@ package com.qbyteconsulting.twsapi.capture.ib.ewrapper
 import java.util.Date
 
 import com.ib.client.ContractDetails
+import com.qbyteconsulting.LogTry
 import com.qbyteconsulting.twsapi.capture.TickDataSink
 import com.qbyteconsulting.twsapi.capture.ib.{ContractListener, StatusListener}
 import org.slf4j.LoggerFactory
@@ -12,9 +13,10 @@ class ListeningEWrapperable(val contractListener: ContractListener,
                             val dataSink: TickDataSink)
 //  val historicalDataSink: HistoricalDataSink,
     extends EWrapperable {
-  import com.qbyteconsulting.twsapi.capture.LogTry
 
   implicit val log = LoggerFactory.getLogger(classOf[ListeningEWrapperable])
+
+  private var timeDif: Long = 0
 
   override def connectAck(): Unit = LogTry {
     statusListener.connectionSuccess()
@@ -25,13 +27,15 @@ class ListeningEWrapperable(val contractListener: ContractListener,
   }
 
   override def currentTime(time: Long): Unit = {
-    log.info("current time " + new Date(time))
+    val epochMillis = time * 1000
+    timeDif = System.currentTimeMillis() - epochMillis
+    log.info(s"TWS time ${new Date(epochMillis)} dif $timeDif ms")
   }
 
   override def error(id: Int, errorCode: Int, errorMsg: String): Unit = LogTry {
     log.warn(s"error: [$id] #$errorCode - $errorMsg")
-    if (id == -1) statusListener.error(errorCode, errorMsg)
-    else statusListener.tickerError(id, errorCode, errorMsg)
+    if (id == -1) statusListener.notification(errorCode, errorMsg)
+    else statusListener.error(id, errorCode, errorMsg)
   }
 
   override def error(e: Exception): Unit = {
@@ -62,7 +66,7 @@ class ListeningEWrapperable(val contractListener: ContractListener,
                          field: Int,
                          price: Double,
                          canAutoExecute: Int): Unit = LogTry {
-    val timestamp = System.currentTimeMillis()
+    val timestamp = System.currentTimeMillis() - timeDif
     if (price != -1) {
       field match {
         case 1 => dataSink.updateBidPrice(tickerId, price, timestamp)
@@ -74,7 +78,7 @@ class ListeningEWrapperable(val contractListener: ContractListener,
   }
 
   override def tickSize(tickerId: Int, field: Int, size: Int): Unit = LogTry {
-    val timestamp = System.currentTimeMillis()
+    val timestamp = System.currentTimeMillis() - timeDif
     field match {
       case 8 => dataSink.updateTradedVolume(tickerId, size, timestamp)
       case _ => ()
@@ -124,5 +128,4 @@ class ListeningEWrapperable(val contractListener: ContractListener,
         }
       }
     } */
-
 }
