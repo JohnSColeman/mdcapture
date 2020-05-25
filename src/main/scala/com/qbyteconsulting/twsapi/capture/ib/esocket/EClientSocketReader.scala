@@ -13,15 +13,15 @@ class EClientSocketReader(eWrapper: EWrapper, signal: EReaderSignal)
   private var consumer: Thread = null
 
   def connectSocket(socket: Socket, clientId: Int) = {
-    if (!isConnected) {
+    if (!isConnected()) {
       println("connectSocket " + socket)
-      cleanupThreads()
+      cleanupOldThreads()
       eConnect(socket, clientId)
-      createThreads()
+      startNewThreads()
     }
   }
 
-  private def cleanupThreads() = {
+  private def cleanupOldThreads() = {
     if (reader != null && reader.isAlive) {
       reader.interrupt()
       reader = null
@@ -33,7 +33,7 @@ class EClientSocketReader(eWrapper: EWrapper, signal: EReaderSignal)
     }
   }
 
-  private def createThreads() = {
+  private def startNewThreads() = {
     val nextSessionNumber = sessionNumber.getAndIncrement().toString
 
     reader = new EReader(this, signal)
@@ -48,7 +48,7 @@ class EClientSocketReader(eWrapper: EWrapper, signal: EReaderSignal)
           try reader.processMsgs()
           catch {
             case e: Exception =>
-              System.out.println("Exception: " + e.getMessage)
+              println("Exception from consumer thread: " + e.getMessage)
           }
         }
       }

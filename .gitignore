@@ -2,9 +2,6 @@ logs
 target
 tmp
 lib
-nshellata
-/src/main/java/
-/src/main/resources/**/*.java
 .history
 /.idea
 /*.iml

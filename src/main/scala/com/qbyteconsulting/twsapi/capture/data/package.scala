@@ -1,9 +1,12 @@
 package com.qbyteconsulting.twsapi.capture
 
+import com.ib.client.Types.BarSize
 import com.typesafe.config.ConfigFactory
 import org.influxdb.{BatchOptions, InfluxDB, InfluxDBFactory}
 
 package object data {
+
+  val ThirtyMinutesMs = 30 * 60 * 1000
 
   val IdbLineFmt = "%d,type=%s val=%f %d"
 

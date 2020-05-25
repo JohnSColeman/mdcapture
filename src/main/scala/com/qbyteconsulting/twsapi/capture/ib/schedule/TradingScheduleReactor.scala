@@ -2,12 +2,17 @@ package com.qbyteconsulting.twsapi.capture.ib.schedule
 
 import java.lang.management.ManagementFactory
 import java.text.SimpleDateFormat
+import java.time.Clock
 import java.util.TimeZone
 
-import com.ib.client.{Contract, ContractDetails}
+import com.ib.client.ContractDetails
 import com.qbyteconsulting.reactor.{Reactor, ReactorCore, _}
 import com.qbyteconsulting.twsapi.capture.ib.ContractDb.ConId
 import com.qbyteconsulting.twsapi.capture.ib._
+import com.qbyteconsulting.twsapi.capture.ib.schedule.TradingSession.{
+  RequestTimes,
+  SessionStatus
+}
 import javax.management.ObjectName
 
 import scala.collection.mutable
@@ -17,8 +22,8 @@ object TradingScheduleReactor {
 
   private val HoursDateTimePattern = "yyyyMMdd:HHmm"
 
-  def getTradingSessions(
-      contractDetails: ContractDetails): Seq[TradingSession] =
+  private def createTradingSessions(contractDetails: ContractDetails,
+                                    twsClock: Clock): Seq[TradingSession] =
     try {
       val days = contractDetails
         .tradingHours()
@@ -29,15 +34,13 @@ object TradingScheduleReactor {
       val dateFmt = new SimpleDateFormat(HoursDateTimePattern)
       dateFmt.setTimeZone(timeZone)
       days.map { range =>
-        val (from, to) = range.split("-") match {
-          case Array(from, to) => (from, to)
-        }
+        val (from, to) = range.split("-") match { case Array(f, t) => (f, t) }
         new TradingSession(contractDetails.contract(),
                            dateFmt.parse(from).toInstant,
                            dateFmt.parse(to).toInstant,
-                           timeZone)
+                           timeZone)(twsClock)
       }
-    } catch {
+    } catch { // this should not happen
       case e: Exception => {
         e.printStackTrace()
         Seq.empty[TradingSession]
@@ -58,7 +61,7 @@ object TradingScheduleReactor {
     def hasSession(session: TradingSession) = tradingCalendar.contains(session)
 
     def addSession(session: TradingSession) = {
-      if (!session.isClosed) {
+      if (session.sessionStatus != SessionStatus.Closed) {
         tradingCalendar += session
         Try {
           mBeanServer.registerMBean(session, objectName(session))
@@ -66,66 +69,60 @@ object TradingScheduleReactor {
       }
     }
 
-    def removeSession(session: TradingSession) = {
+    def removeSession(session: TradingSession): Unit = {
       tradingCalendar -= session
       Try {
         mBeanServer.unregisterMBean(objectName(session))
       }
     }
 
-    def getActiveSessions(): Seq[TradingSession] =
-      tradingCalendar.filter(_.isActive)
+    def getRequestTimes(conid: ConId): Seq[Option[RequestTimes]] =
+      tradingCalendar
+        .filter(session => session.contract.conid() == conid)
+        .map(session => session.getRequestTimes)
   }
-
 }
 
 class TradingScheduleReactor(val reactorCore: ReactorCore) extends Reactor {
   import TradingScheduleReactor._
 
-  private val scheduledSessions = new mutable.ArrayBuffer[TradingSession]()
   private val tradingCalendar = new TradingCalendar()
+  private var twsClock: Clock = _
 
   override def onEvent(event: ReactorEvent): Unit =
     event match {
-      case ContractLoaded(contractDetails) => scheduleEvents(contractDetails)
-      case RequestMarketData(contract)     => openTradingSession(contract)
-      case CancelMarketData(conid: ConId)  => closeTradingSession(conid)
+      case TwsClock(clock)                 => twsClock = clock
+      case ContractDetailsLoaded(contractDetails) => scheduleEvents(contractDetails)
+      case RequestMarketData(session)      => openTradingSession(session)
+      case CancelMarketData(session)       => closeTradingSession(session)
       case _                               => Unit
     }
 
   private def scheduleEvents(contractDetails: ContractDetails): Unit = {
-    getTradingSessions(contractDetails).foreach { session =>
+    createTradingSessions(contractDetails, twsClock).foreach { session =>
       if (!tradingCalendar.hasSession(session)) {
         tradingCalendar.addSession(session)
       }
-      if (session.isActive) {
-        if (!scheduledSessions.contains(session)) {
-          scheduledSessions += session
-          publish(RequestMarketData(contractDetails.contract()))
-          schedule(CancelMarketData(contractDetails.conid()), session.close)
-        } else {
-          publish(RequestMarketData(contractDetails.contract()))
-        }
-      } else if (session.isPending && !scheduledSessions.contains(session)) {
-        scheduledSessions += session
-        schedule(RequestMarketData(contractDetails.contract()), session.open)
-        schedule(CancelMarketData(contractDetails.conid()), session.close)
+    }
+    tradingCalendar.getRequestTimes(contractDetails.conid()).foreach {
+      case Some(RequestTimes(session, None, Some(close))) => {
+        publish(RequestMarketData(session))
+        schedule(CancelMarketData(session), close)
       }
+      case Some(RequestTimes(session, None, None)) => {
+        publish(RequestMarketData(session))
+      }
+      case Some(RequestTimes(session, Some(open), Some(close))) => {
+        schedule(RequestMarketData(session), open)
+        schedule(CancelMarketData(session), close)
+      }
+      case _ =>
     }
   }
 
-  private def openTradingSession(contract: Contract) =
-    scheduledSessions
-      .filter(s => s.contract.conid() == contract.conid() && s.isActive)
-      .foreach { as =>
-        // update calendar?
-      }
+  private def openTradingSession(session: TradingSession) = ()
 
-  private def closeTradingSession(conid: ConId) =
-    scheduledSessions
-      .filter(s => s.contract.conid() == conid && s.isClosed)
-      .foreach { cs =>
-        scheduledSessions -= cs
-        tradingCalendar.removeSession(cs)
-      }
+  private def closeTradingSession(session: TradingSession) =
+    tradingCalendar.removeSession(session)
+
 }

@@ -1,10 +1,11 @@
 package com.qbyteconsulting.twsapi.capture.ib.schedule
 
 import java.text.SimpleDateFormat
-import java.time.Instant
+import java.time.{Clock, Instant}
 import java.util.{Date, TimeZone}
 
 import com.ib.client.Contract
+import com.qbyteconsulting.twsapi.capture.ib.schedule.TradingSession.SessionStatus.SessionStatus
 
 object TradingSession {
 
@@ -15,12 +16,21 @@ object TradingSession {
     shortDateFmt.setTimeZone(timeZone)
     shortDateFmt.format(new Date(instant.toEpochMilli))
   }
+
+  case class RequestTimes(val session: TradingSession,
+                          val open: Option[Instant],
+                          val close: Option[Instant])
+
+  object SessionStatus extends Enumeration {
+    type SessionStatus = Value
+    val Closed, Open, Pending = Value
+  }
 }
 
 case class TradingSession(val contract: Contract,
                           val open: Instant,
                           val close: Instant,
-                          val timeZone: TimeZone)
+                          val timeZone: TimeZone)(val twsClock: Clock)
     extends TradingSessionMBean {
   import TradingSession._
 
@@ -29,28 +39,41 @@ case class TradingSession(val contract: Contract,
 
   val date = s"${getShortDate(open, timeZone)}${timeZone.getID}"
 
+  private var scheduled = false
+
   private var lastActive: Option[Instant] = None
 
   override def getSession(): String = toString()
 
-  def setLastActive(lastAlive: Instant): Unit = {
-    lastActive = Option(lastAlive)
-  }
+  def updateLastActive(): Unit = lastActive = Option(twsClock.instant())
 
   def getLastActive: Option[Instant] = lastActive
 
-  def marketState: String =
-    if (isActive) "OPEN" else if (isPending) "PENDING" else "CLOSED"
+  def marketState: String = sessionStatus.toString
 
-  def isClosed: Boolean = Instant.now().isAfter(close)
+  def sessionStatus: SessionStatus = {
+    if (twsClock.instant().isAfter(close)) SessionStatus.Closed
+    else if (open.isAfter(twsClock.instant())) SessionStatus.Pending
+    else SessionStatus.Open
+  }
 
-  def isActive: Boolean =
-    Instant.now().isAfter(open) && close.isAfter(Instant.now())
-
-  def isPending: Boolean = open.isAfter(Instant.now())
+  def getRequestTimes: Option[RequestTimes] = {
+    val status = sessionStatus
+    if (status == SessionStatus.Open) {
+      if (!scheduled) {
+        scheduled = true
+        Some(RequestTimes(this, None, Some(close)))
+      } else Some(RequestTimes(this, None, None))
+    } else if (status == SessionStatus.Pending) {
+      if (!scheduled) {
+        scheduled = true
+        Some(RequestTimes(this, Some(open), Some(close)))
+      } else None
+    } else None
+  }
 
   def elapsedSinceLastActive = {
-    if (isActive) {
+    if (sessionStatus == SessionStatus.Open) {
       if (lastActive.isDefined) {
         val elapsed = System.currentTimeMillis() - lastActive.get.toEpochMilli
         val seconds = elapsed / 1000

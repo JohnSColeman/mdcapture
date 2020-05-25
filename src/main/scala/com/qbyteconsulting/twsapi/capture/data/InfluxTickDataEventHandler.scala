@@ -12,7 +12,7 @@ import com.qbyteconsulting.twsapi.capture.data.ReactorTickDataSink.{
 import org.influxdb.InfluxDB
 import org.influxdb.dto.Point
 
-class InfluxTickDataEventHandler(influxDB: InfluxDB) extends EventValHandler {
+class InfluxTickDataEventHandler(db: InfluxDB) extends EventValHandler {
 
   override def onEvent(event: ReactorEvent): Unit = {
     event match {
@@ -32,11 +32,11 @@ class InfluxTickDataEventHandler(influxDB: InfluxDB) extends EventValHandler {
                                mTimestamp: Long,
                                mType: String,
                                mVal: Number) = {
-    influxDB.write(
+    db.write(
       Point
         .measurement(measurement)
         .time(mTimestamp, TimeUnit.MILLISECONDS)
-        .addField("type", mType)
+        .tag("type", mType)
         .addField("val", mVal)
         .build())
   }

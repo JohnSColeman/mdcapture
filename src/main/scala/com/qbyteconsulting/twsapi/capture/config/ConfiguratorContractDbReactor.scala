@@ -1,50 +1,28 @@
 package com.qbyteconsulting.twsapi.capture.config
 
 import com.ib.client.{Contract, ContractDetails}
-import com.qbyteconsulting.twsapi.capture.ib.ContractDb.{
-  ConId,
-  ContractDbIOException
-}
-import com.qbyteconsulting.twsapi.capture.ib._
 import com.qbyteconsulting.reactor.{Reactor, ReactorCore, ReactorEvent}
-import pureconfig.error.ConfigReaderFailures
-import pureconfig.loadConfig
+import com.qbyteconsulting.twsapi.capture.ib.ContractDb.{ConId, ContractDbIOException}
+import com.qbyteconsulting.twsapi.capture.ib._
+import pureconfig.loadConfigOrThrow
 
 import scala.collection.concurrent.TrieMap
 
 object ConfiguratorContractDbReactor {
 
-  class ConfiguratorContractDbIOException(val failures: ConfigReaderFailures)
-      extends ContractDbIOException()
-
-  private lazy val configContainer
-    : Either[ConfigReaderFailures, ContractConfigContainer] =
-    loadConfig[ContractConfigContainer]
-
-  private lazy val contractConfigs = configContainer match {
-    case Right(container) => {
-      container.contractConfigs.foreach(c => println(c))
-      Right(container.contractConfigs)
-    }
-    case Left(failures) => {
-      failures.toList.foreach(println)
-      Left(failures)
-    }
-  }
+  private val configContainer = loadConfigOrThrow[ContractConfigContainer]
 }
 
 class ConfiguratorContractDbReactor(val reactorCore: ReactorCore)
-    extends ContractDb
+  extends ContractDb
     with ContractListener
     with Reactor {
+
   import ConfiguratorContractDbReactor._
 
   private val contractDetailsCache = new TrieMap[ConId, ContractDetails]()
 
-  private val configuredContracts = contractConfigs match {
-    case Right(configs) => configs
-    case Left(failures) => Nil
-  }
+  private val configuredContracts = configContainer.contractConfigs
 
   override def onEvent(event: ReactorEvent): Unit = {
     event match {
@@ -56,22 +34,19 @@ class ConfiguratorContractDbReactor(val reactorCore: ReactorCore)
   }
 
   override def getContractDescriptions
-    : Either[ContractDbIOException, Iterable[ContractDetails]] =
+  : Either[ContractDbIOException, Iterable[ContractDetails]] =
     Right(contractDetailsCache.values)
 
   override def getContracts: Either[ContractDbIOException, Iterable[Contract]] =
     Right(contractDetailsCache.values.map(_.contract()))
 
-  override def getContractDescription(
-      conid: ConId): Either[ContractDbIOException, Option[ContractDetails]] =
+  override def getContractDescription(conid: ConId): Either[ContractDbIOException, Option[ContractDetails]] =
     Right(contractDetailsCache.get(conid))
 
-  override def getContract(
-      conid: ConId): Either[ContractDbIOException, Option[Contract]] =
+  override def getContract(conid: ConId): Either[ContractDbIOException, Option[Contract]] =
     Right(contractDetailsCache.get(conid).map(_.contract()))
 
-  override def storeContractDetails(
-      contractDetails: ContractDetails): Either[ContractDbIOException, ConId] =
+  override def storeContractDetails(contractDetails: ContractDetails): Either[ContractDbIOException, ConId] =
     Right {
       contractDetailsCache.update(contractDetails.conid(), contractDetails)
       contractDetails.conid()
@@ -81,7 +56,7 @@ class ConfiguratorContractDbReactor(val reactorCore: ReactorCore)
                                      contractDetails: ContractDetails): Unit = {
     storeContractDetails(contractDetails) match {
       case Right(conId) =>
-        publish(ContractLoaded(contractDetails))
+        publish(ContractDetailsLoaded(contractDetails))
       case Left(e) => e.printStackTrace()
     }
   }

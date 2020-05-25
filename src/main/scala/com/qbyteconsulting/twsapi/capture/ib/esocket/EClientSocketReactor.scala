@@ -3,26 +3,41 @@ package com.qbyteconsulting.twsapi.capture.ib.esocket
 import java.lang
 import java.lang.management.ManagementFactory
 import java.net.{InetAddress, InetSocketAddress, Socket}
+import java.text.SimpleDateFormat
+import java.time.{ZoneId, ZonedDateTime}
+import java.time.format.DateTimeFormatter
 
-import com.ib.client.{EJavaSignal, EWrapper}
+import com.ib.client.{EJavaSignal, EWrapper, Types}
 import com.qbyteconsulting.LogTry
-import com.qbyteconsulting.reactor.{Launch, Reactor, ReactorCore, ReactorEvent}
+import com.qbyteconsulting.reactor._
 import com.qbyteconsulting.twsapi.capture.ib._
 import javax.management.ObjectName
+import org.slf4j.LoggerFactory
 
 import scala.util.{Failure, Success, Try}
 
 object EClientSocketReactor {
 
-  private val GTT = "225"
+  private val TickList = "225"
+
+  val TwsConnectionTimeFmt = "yyyyMMdd HH:mm:ss z"
+
+  def extractZoneId(twsConnectionTime: String): ZoneId = {
+    val fmt = new SimpleDateFormat(TwsConnectionTimeFmt)
+    fmt.parse(twsConnectionTime)
+    fmt.getTimeZone.toZoneId
+  }
 }
 
 class EClientSocketReactor(hostParams: IbHostParams,
                            ewrapper: EWrapper,
                            val reactorCore: ReactorCore)
-    extends Reactor
+  extends Reactor
     with EClientSocketReactorMBean {
+
   import EClientSocketReactor._
+
+  private implicit val log = LoggerFactory.getLogger(classOf[EClientSocketReactor])
 
   LogTry {
     val on =
@@ -47,15 +62,50 @@ class EClientSocketReactor(hostParams: IbHostParams,
       case Launch() | Reconnect() | ConnectionCheck(_) => connectClientSocket()
       case ContractsConfigured(contracts) =>
         contracts.foreach { c =>
-          clientSocket.reqContractDetails(c.cConid, c.toIbContract())
+          val contract = c.toIbContract()
+          clientSocket.reqContractDetails(c.conid, contract)
+          if (c.historicalData.isDefined) {
+            val whatToShow = if (contract.secType() != Types.SecType.CASH) "TRADES" else "ASK"
+            clientSocket.reqHeadTimestamp(c.conid, contract, whatToShow, 0, 1)
+          }
         }
-      case ConnectionSuccess() => clientSocket.reqCurrentTime()
-      case RequestMarketData(contract) =>
-        clientSocket.reqMktData(contract.conid(), contract, GTT, false, null)
-      case CancelMarketData(conid) =>
-        clientSocket.cancelMktData(conid)
+      case ConnectionSuccess() => {
+        val twsConnectionTime = clientSocket.getTwsConnectionTime
+        val twsZoneId = extractZoneId(twsConnectionTime)
+        println(s"TWS connection time zone [$twsZoneId]")
+        publish(TwsZoneId(twsZoneId))
+        clientSocket.reqCurrentTime()
+      }
+      case RequestMarketData(session) =>
+        clientSocket.reqMktData(session.contract.conid(),
+          session.contract,
+          TickList,
+          false,
+          false,
+          null)
+      case CancelMarketData(session) =>
+        clientSocket.cancelMktData(session.contract.conid())
+      case RequestHistoricalData(tickerId,
+      contract,
+      endDateTime,
+      durationStr,
+      barSizeSetting,
+      whatToShow,
+      useRTH,
+      formatDate,
+      keepUpToDate) =>
+        clientSocket.reqHistoricalData(tickerId,
+          contract,
+          endDateTime,
+          durationStr,
+          barSizeSetting,
+          whatToShow,
+          useRTH,
+          formatDate,
+          keepUpToDate,
+          null)
       case Status507(_) => clientSocket.eDisconnect()
-      case _            => Unit
+      case _ => Unit
     }
   }
 

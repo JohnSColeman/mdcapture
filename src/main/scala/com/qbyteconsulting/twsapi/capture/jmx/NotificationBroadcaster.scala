@@ -5,6 +5,8 @@ import java.util.concurrent.{CopyOnWriteArrayList, Executor}
 
 import javax.management.{MBeanNotificationInfo, _}
 
+import scala.collection.JavaConverters._
+
 trait NotificationBroadcaster extends NotificationEmitter {
   val notifInfo: Array[MBeanNotificationInfo]
   val notifExecutor: Executor
@@ -49,7 +51,7 @@ trait NotificationBroadcaster extends NotificationEmitter {
   def sendNotification(notification: Notification): Unit = {
     if (notification != null) {
       var enabled = false
-      listenerList.forEach { li =>
+      listenerList.iterator().asScala.foreach { li =>
         try {
           enabled = li.filter == null ||
             li.filter.isNotificationEnabled(notification)

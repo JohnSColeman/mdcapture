@@ -11,13 +11,13 @@
     <dependencies>
 
         <!-- Configure local path to TwsApi.jar dependency -->
-        <!--dependency>
+        <dependency>
             <groupId>com.ib</groupId>
             <artifactId>TwsApi</artifactId>
-            <version>9.72.18</version>
+            <version>9.76</version>
             <scope>system</scope>
-            <systemPath>C:/IBJts/source/JavaClient/TwsApi.jar</systemPath>
-        </dependency-->
+            <systemPath>C:/TWS API/source/JavaClient/TwsApi.jar</systemPath>
+        </dependency>
 
         <dependency>
             <groupId>org.influxdb</groupId>
@@ -33,7 +33,7 @@
 
         <dependency>
             <groupId>com.github.pureconfig</groupId>
-            <artifactId>pureconfig_2.12</artifactId>
+            <artifactId>pureconfig_2.11</artifactId>
             <version>0.9.2</version>
         </dependency>
 
@@ -52,7 +52,7 @@
         <dependency>
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-library</artifactId>
-            <version>2.12.6</version>
+            <version>2.11.12</version>
         </dependency>
 
     </dependencies>
@@ -63,6 +63,7 @@
             <plugin>
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
+                <version>3.4.6</version>
                 <executions>
                     <execution>
                         <id>scala-compile-first</id>
@@ -123,15 +124,17 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.2.1</version>
+                <configuration>
+                    <mainClass>com.qbyteconsulting.twsapi.capture.IbCaptureApp</mainClass>
+                </configuration>
+            </plugin>
+
+
         </plugins>
     </build>
-
-    <repositories>
-        <repository>
-            <id>spring.io</id>
-            <name>Spring Artifactory</name>
-            <url>http://repo.spring.io/plugins-release</url>
-        </repository>
-    </repositories>
 
 </project>

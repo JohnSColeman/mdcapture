@@ -3,15 +3,14 @@ package com.qbyteconsulting.twsapi.capture
 trait HistoricalDataSink {
 
   def processHistoricalData(reqId: Int,
-                            date: Long,
+                            timestamp: Long,
                             open: Double,
                             high: Double,
                             low: Double,
                             close: Double,
-                            volume: Int,
+                            volume: Long,
                             count: Int,
-                            wap: Double,
-                            hasGaps: Boolean)
+                            wap: Double)
 
-  def finishHistoricalData(reqId: Int)
+  def finishHistoricalData(reqId: Int, timestamp: Long, fromTime: Long, toTime: Long)
 }

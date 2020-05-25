@@ -18,24 +18,6 @@ package object reactor {
     def setValue(value: ReactorEvent): Unit = this.value = value
   }
 
-  trait EventValHandler extends EventHandler[EventVal] {
-
-    implicit val log = LoggerFactory.getLogger(classOf[EventValHandler])
-
-    private val debug = log.isDebugEnabled
-
-    override def onEvent(t: EventVal, l: Long, b: Boolean): Unit = {
-      if (debug) log.debug(t.getValue.toString)
-      LogTry(onEvent(t.getValue))
-    }
-    def onEvent(event: ReactorEvent): Unit = ()
-  }
-
-  trait EventPublisher {
-
-    def publish(event: ReactorEvent): Unit
-  }
-
   private[reactor] def ReactorEventFactory: EventFactory[EventVal] =
     new EventFactory[EventVal]() {
       override def newInstance = new EventVal()

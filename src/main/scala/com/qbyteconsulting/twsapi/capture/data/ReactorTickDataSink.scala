@@ -1,27 +1,29 @@
 package com.qbyteconsulting.twsapi.capture.data
 
+import java.util.Date
+
 import com.qbyteconsulting.twsapi.capture.TickDataSink
 import com.qbyteconsulting.reactor.{Reactor, ReactorCore, ReactorEvent}
 
 object ReactorTickDataSink {
 
-  trait MarketEvent extends ReactorEvent { val tickerId: Int }
-  case class BidPrice(val tickerId: Int,
-                      val price: Double,
-                      val timestamp: Long = System.currentTimeMillis())
-      extends MarketEvent
-  case class AskPrice(val tickerId: Int,
-                      val price: Double,
-                      val timestamp: Long = System.currentTimeMillis())
-      extends MarketEvent
-  case class LastPrice(val tickerId: Int,
-                       val price: Double,
-                       val timestamp: Long = System.currentTimeMillis())
-      extends MarketEvent
-  case class TradedVolume(val tickerId: Int,
-                          val volume: Int,
-                          val timestamp: Long = System.currentTimeMillis())
-      extends MarketEvent
+  trait TickMarketEvent extends ReactorEvent { val tickerId: Int }
+  case class BidPrice(tickerId: Int,
+                      price: Double,
+                      timestamp: Long = System.currentTimeMillis())
+      extends TickMarketEvent
+  case class AskPrice(tickerId: Int,
+                      price: Double,
+                      timestamp: Long = System.currentTimeMillis())
+      extends TickMarketEvent
+  case class LastPrice(tickerId: Int,
+                       price: Double,
+                       timestamp: Long = System.currentTimeMillis())
+      extends TickMarketEvent
+  case class TradedVolume(tickerId: Int,
+                          volume: Int,
+                          timestamp: Long = System.currentTimeMillis())
+      extends TickMarketEvent
 }
 
 class ReactorTickDataSink(val reactorCore: ReactorCore)
@@ -50,6 +52,6 @@ class ReactorTickDataSink(val reactorCore: ReactorCore)
     publish(TradedVolume(tickerId, volume, timestamp))
 
   override def tickerCloses(tickerId: Int): Unit = {
-    println(s"tickerCloses $tickerId")
+    println(s"tickerCloses $tickerId at ${new Date()}")
   }
 }

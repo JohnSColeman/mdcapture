@@ -1,6 +1,6 @@
 package com.qbyteconsulting.twsapi.capture.ib
 
-import java.time.{Duration, Instant}
+import java.time.{Clock, Duration, Instant}
 import java.util.concurrent.ScheduledFuture
 
 import com.qbyteconsulting.reactor.{Reactor, ReactorCore, ReactorEvent}
@@ -20,6 +20,9 @@ class StateReactor(val reactorCore: ReactorCore)
                            Duration.ofSeconds(15)))
         }
       }
+      case TwsZoneId(zone) => {
+        twsZoneId = zone
+      }
       case _ => Unit
     }
   }
@@ -31,6 +34,8 @@ class StateReactor(val reactorCore: ReactorCore)
       if (isCancelled) connectionChecker = None
     }
   }
+
+  override def clockSync(twsClock: Clock): Unit = publish(TwsClock(twsClock))
 
   override def connectionClosed(): Unit = publish(ConnectionClosed())
 
