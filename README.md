@@ -4,7 +4,7 @@ A Scala client for the Interactive Brokers Trader Workstation API TWS-API
 Features:
 - robust recovery of broken connections
 - influxdb time series database to store tick data
-- architecture built on lmax disruptor
+- architecture built on lmax disruptor (not Scala Future)
 - stable thread management
 - JMX dashboard
 
